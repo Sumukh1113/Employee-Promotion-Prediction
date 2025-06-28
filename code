@@ -1,0 +1,139 @@
+# Employee-Promotion-Prediction
+# Directory: src/preprocessing.py
+
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+class DataPreprocessor:
+    def __init__(self):
+        self.pipeline = None
+
+    def fit_transform(self, df):
+        categorical = df.select_dtypes(include=['object']).columns.tolist()
+        numerical = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), numerical),
+                ('cat', OneHotEncoder(drop='first'), categorical)
+            ])
+
+        self.pipeline = Pipeline(steps=[('preprocessor', preprocessor)])
+        X_processed = self.pipeline.fit_transform(df)
+        return X_processed
+
+    def transform(self, df):
+        return self.pipeline.transform(df)
+
+
+# Directory: src/training.py
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+from imblearn.over_sampling import SMOTE
+import joblib
+from preprocessing import DataPreprocessor
+
+def train_model(data_path):
+    df = pd.read_csv(data_path)
+    X = df.drop('is_promoted', axis=1)
+    y = df['is_promoted']
+
+    preprocessor = DataPreprocessor()
+    X_processed = preprocessor.fit_transform(X)
+
+    smote = SMOTE()
+    X_resampled, y_resampled = smote.fit_resample(X_processed, y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
+
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    print(classification_report(y_test, y_pred))
+
+    joblib.dump(model, 'models/trained_model.pkl')
+    joblib.dump(preprocessor, 'models/preprocessor.pkl')
+
+
+# Directory: src/prediction.py
+
+import pandas as pd
+import joblib
+
+def predict_new_data(new_data_path):
+    df_new = pd.read_csv(new_data_path)
+    model = joblib.load('models/trained_model.pkl')
+    preprocessor = joblib.load('models/preprocessor.pkl')
+
+    X_new = preprocessor.transform(df_new)
+    predictions = model.predict(X_new)
+    return predictions
+
+if __name__ == '__main__':
+    preds = predict_new_data('data/new_employee_data.csv')
+    print("Predictions:", preds)
+
+
+# Directory: notebooks/employee_promotion_analysis.ipynb
+
+# This will be the notebook with the following sections:
+# - Data Loading
+# - Exploratory Data Analysis
+# - Data Cleaning
+# - Preprocessing (one-hot encoding, scaling)
+# - Feature Selection
+# - Balancing (SMOTE)
+# - Model Training and Evaluation
+
+# Sample notebook structure (actual content would go in the notebook format)
+
+"""
+## Employee Promotion Prediction - EDA & Modeling
+
+### 1. Load Data
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv('../data/employee_data.csv')
+df.head()
+```
+
+### 2. Basic Info and Null Handling
+```python
+df.info()
+df.isnull().sum()
+df.fillna(0, inplace=True)  # if needed
+```
+
+### 3. EDA
+```python
+sns.countplot(x='is_promoted', data=df)
+sns.boxplot(x='education', y='avg_training_score', data=df)
+```
+
+### 4. Correlation and Feature Importance
+```python
+sns.heatmap(df.corr(), annot=True)
+```
+
+### 5. Preprocessing, Training, Evaluation
+(Refer and import from `src/`)
+```
+"""
+
+
+# GitHub Instructions (CLI Based)
+
+# Create repo
+# In terminal:
+# $ gh repo create employee-promotion-prediction --public --source=. --remote=origin
+# $ git add . && git commit -m "Initial commit"
+# $ git push -u origin main
